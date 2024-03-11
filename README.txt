@@ -4,10 +4,14 @@ use the type_friend canda to use this
 
 TODO:
 
+reduce temperature and the number of words
+
 get rid of new lines
 
 make it show the text and the suggestions and the turkish translation
     multiple suggestions in separate colors
+
+put suggestion in a framing box
 
 
 
