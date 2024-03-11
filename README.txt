@@ -4,14 +4,10 @@ use the type_friend canda to use this
 
 TODO:
 
-make a timer so it doesnt give suggestions until there is enough of a pause
-
 get rid of new lines
 
 make it show the text and the suggestions and the turkish translation
     multiple suggestions in separate colors
-
-create the gesture to turn it on and off, this needs to be a script
 
 
 

@@ -8,38 +8,28 @@ from pynput import keyboard
 import pyautogui
 import requests
 import json
+import time
+import threading
 
-# Global variable to keep track of typed text
+# Global variable for the timer 
+update_timer = None
 typed_text = ""
-# Variable to track if the Super key is pressed
 super_key_pressed = False
-
 last_sent_prompt = 'none'
-
 suggestion = 'suggestion'
+last_keypress_time = time.time() 
 
 def get_suggestion_from_llm(prompt):
-    # API endpoint
     url = 'http://localhost:11434/api/generate'
-
-    # Data to be sent
     data = {
         "model": "solar:10.7b-text-v1-q4_0",
         "prompt": "complete the following sentence: \n\n"+prompt,
         "stream": False,
         "options": {"num_predict": 10}
     }
-
-    # Headers
     headers = {'Content-Type': 'application/json'}
-
-    # POST request
     response = requests.post(url, headers=headers, data=json.dumps(data))
-
-    # Convert response.text to json
     json_response = response.json()
-
-    # Return the response
     return json_response["response"]
 
 # Function to get the current cursor position
@@ -64,21 +54,19 @@ def create_overlay_window():
     window.show_all()
     return window, label
 
-# def get_suggestion_fromt_llm(prompt):
-#     #this is where we need to actually send the request to the llm
-#     return 'suggestion'
-
 # Function to update the overlay window position and text
 def update_window(window, label, text):
     global last_sent_prompt, suggestion
-    if text != last_sent_prompt:
-        last_sent_prompt = text
-        suggestion = get_suggestion_from_llm(text)
+    if check_file_content() == 'go':
+        if text != last_sent_prompt:
+            last_sent_prompt = text
+            suggestion = get_suggestion_from_llm(text) 
+    else:
+        suggestion = ''
 
     x, y = get_cursor_position()
     GLib.idle_add(window.move, x + 20, y - 10)
     GLib.idle_add(label.set_text, suggestion)
-        
 
 # Function to check the content of the external file
 def check_file_content():
@@ -86,9 +74,11 @@ def check_file_content():
         content = file.read().strip()
     return content
 
+
+
 # Callback for key press events
 def on_key_press(key):
-    global typed_text, super_key_pressed, suggestion
+    global typed_text, super_key_pressed, suggestion, last_keypress_time, update_timer
     # Check the content of the external file
     if check_file_content() == 'go':
         try:
@@ -103,8 +93,29 @@ def on_key_press(key):
         except AttributeError:
             # Special keys (e.g., enter, etc.) can be handled here
             pass
-        # Update window with the typed text
-        update_window(window, label, typed_text)
+        # Cancel the existing timer if it exists
+        if update_timer is not None:
+            update_timer.cancel()
+        # Start a new timer that will call update_window after 1 second
+        update_timer = threading.Timer(1, update_window, args=(window, label, typed_text))
+        update_timer.start()
+    else:
+        update_window(window, label, "")
+
+# Function to update the overlay window position and text
+def update_window(window, label, text):
+    global last_sent_prompt, suggestion
+    if check_file_content() == 'go':
+        if text != last_sent_prompt:
+            last_sent_prompt = text
+            suggestion = get_suggestion_from_llm(text) 
+    else:
+        suggestion = ''
+
+    x, y = get_cursor_position()
+    GLib.idle_add(window.move, x + 20, y - 10)
+    GLib.idle_add(label.set_text, suggestion)
+
 
 # Callback for key release events
 def on_key_release(key):
@@ -113,16 +124,17 @@ def on_key_release(key):
     if check_file_content() == 'go':
         if key == Key.cmd:  # This block captures the Super key release
             super_key_pressed = False
+    else:
+        update_window(window, label, "")
 
 # Callback for mouse move events
 def on_move(x, y):
     global typed_text
     # Check the content of the external file
     if check_file_content() == 'go':
-        # Reset typed text on mouse move
-        #typed_text = ""
-        # Update window to show default text
-        update_window(window, label, typed_text) 
+        update_window(window, label, typed_text)
+    else:
+        update_window(window, label, "")
 
 if __name__ == "__main__":
     window, label = create_overlay_window()
